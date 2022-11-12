@@ -1,5 +1,7 @@
 import random
 import pygame
+import numpy as np
+from test import neural_network
 
 class cube(object):
     def __init__(self, start, dirnx=1, dirny=0, color=(255,0,0)):
@@ -13,7 +15,7 @@ class cube(object):
         self.dirny = dirny
         self.pos = (self.pos[0]+self.dirnx, self.pos[1]+self.dirny)
 
-    def draw(self, surface, eyes = False):
+    def draw(self, surface):
         dis = width // rows
         i = self.pos[0]
         j = self.pos[1]
@@ -29,8 +31,12 @@ class snake(object):
         self.body.append(self.head)
         self.dirnx = 0
         self.dirny = 1
-    
-    def move(self):
+
+        self.score = []
+        self.avg_steps = []
+        self.penalities = []
+
+    def move_with_keys(self):
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 pygame.quit()
@@ -53,6 +59,36 @@ class snake(object):
                     self.dirnx = 0
                     self.dirny = 1
                     self.turns[self.head.pos[:]] = [self.dirnx, self.dirny]
+
+    def move_with_brain(self):
+        inp = self.get_surroundings()
+        x = b.forward_prop(inp)
+        print(x[0])
+        val = x[0].argmax()
+
+        if val == 0:
+            self.dirnx = -1
+            self.dirny = 0
+            self.turns[self.head.pos[:]] = [self.dirnx, self.dirny]
+        elif val == 1:
+            self.dirnx = 1
+            self.dirny = 0
+            self.turns[self.head.pos[:]] = [self.dirnx, self.dirny]
+        elif val == 2:
+            self.dirnx = 0
+            self.dirny = -1
+            self.turns[self.head.pos[:]] = [self.dirnx, self.dirny]
+        elif val == 3:
+            self.dirnx = 0
+            self.dirny = 1
+            self.turns[self.head.pos[:]] = [self.dirnx, self.dirny]  
+
+    def get_surroundings(self):
+        # will return an 12 size list
+        return [1,1,1,1,1,1,1,1,1,1,1,0]
+
+    def move(self):
+        self.move_with_brain()
                 
         for i,c in enumerate(self.body):
             p = c.pos[:]
@@ -72,13 +108,48 @@ class snake(object):
                     c.pos = (c.pos[0], rows-1)
                 else:
                     c.move(c.dirnx, c.dirny)
+    
+    def play(self):
+        screen = pygame.display.set_mode((width, width))
+        food = cube(randomfood(rows, self), color=(0,255,0))
+        clock = pygame.time.Clock()
 
-    def draw(self, surface  ):
+        flag = 0
+        tmp = 0
+        penality = 0
+        while flag < 3:
+            pygame.time.delay(50)
+            clock.tick(10)
+            self.move()
+
+            if self.body[0].pos == food.pos:
+                self.addCube()
+                food = cube(randomfood(rows, self), color=(0,255,0))
+
+                self.avg_steps.append(tmp)
+                if tmp > 30:
+                    penality+=1
+                tmp = 0
+            tmp+=1
+
+            for x in range(1,len(self.body)):
+                if self.body[0].pos == self.body[x].pos:
+                    self.score.append(len(self.body))
+                    self.penalities.append(penality)
+                    penality = 0
+                    self.reset((10,10))
+                    flag += 1
+                    break
+            self.redrawWindow(screen, width, rows, food)
+
+    def fitness_fun(self):
+        val = max(self.score)*5000 - 150 * sum(self.avg_steps)/len(self.avg_steps) - 100 * sum(self.penalities
+        )
+        return self.score, sum(self.avg_steps)/len(self.avg_steps), self.penalities, val
+
+    def draw(self, surface):
         for i, c in enumerate(self.body):
-            if i==0:
-                c.draw(surface, True)
-            else:
-                c.draw(surface)
+            c.draw(surface)
     
     def addCube(self):
         tail = self.body[-1]
@@ -97,6 +168,13 @@ class snake(object):
         self.dirny = 1
 
 
+    def redrawWindow(self, surface, width, rows, food):
+        surface.fill((0,0,0))
+        drawGrid(surface, width, rows)
+        self.draw(surface)
+        food.draw(surface)
+        pygame.display.update()
+
 def drawGrid(surface, w, rows):
     sizeBtwn = w//rows
     x = 0
@@ -107,12 +185,6 @@ def drawGrid(surface, w, rows):
         pygame.draw.line(surface, (255,255,255), (x, 0), (x,w))
         pygame.draw.line(surface, (255,255,255), (0, y), (w,y))
 
-def redrawWindow(surface):
-    surface.fill((0,0,0))
-    drawGrid(surface, width, rows)
-    s.draw(surface)
-    food.draw(surface)
-    pygame.display.update()
 
 def randomfood(rows, eater):
     positions = eater.body
@@ -128,30 +200,15 @@ def randomfood(rows, eater):
     return (x,y)
 
 def main():
-    global width, rows, s, food
+    global width, rows, b
     width = 500
     rows = 20
 
-    screen = pygame.display.set_mode((width, width))
-
+    b = neural_network()
     s = snake((255,0,0),(10,10))
-    food = cube(randomfood(rows, s), color=(0,255,0))
-    clock = pygame.time.Clock()
-
-    flag = True
-    while flag:
-        pygame.time.delay(50)
-        clock.tick(10)
-        s.move()
-        if s.body[0].pos == food.pos:
-            s.addCube()
-            food = cube(randomfood(rows, s), color=(0,255,0))
-        
-        for x in range(1,len(s.body)):
-            if s.body[0].pos == s.body[x].pos:
-                print("score:", len(s.body))
-                s.reset((10,10))
-                break
-        redrawWindow(screen)
+    s.play()
+    # print(s.fitness_fun())
+    
+    # b.forward_prop([1,1,1,1,1,1,1,1,1,1,1,1])
 
 main()
