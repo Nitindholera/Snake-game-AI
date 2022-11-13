@@ -162,9 +162,9 @@ class snake(object):
         steps = 0
         penality = 0
         tmp = 0
-        while steps < 50:
-            pygame.time.delay(50)
-            # clock.tick(10)
+        while steps < 500:
+            # pygame.time.delay(50)
+            # clock.tick(2)
             self.move(dis, brain)
 
             if self.body[0].pos == self.food.pos:
@@ -217,7 +217,7 @@ class snake(object):
             self.score.append(1)
         val = (max(self.score))*5000 - 150 * self.deaths - 100 * avg - 1000 * sum(self.penalities
         )
-        return self.score, self.deaths, avg, self.penalities, val
+        return self.score, max(self.score), self.deaths, avg, self.penalities, val
 
     def draw(self, surface):
         for i, c in enumerate(self.body):
@@ -238,6 +238,7 @@ class snake(object):
         self.turns = {}
         self.dirnx = 0
         self.dirny = 1
+        self.food = cube(randomfood(rows, self), color=(0,255,0))
 
 
     def redrawWindow(self, surface, width, rows, food):
@@ -276,10 +277,10 @@ def main():
     width = 500
     rows = 20
 
-    b = neural_network()
-    s = snake((255,0,0),(10,10))
-    s.play(1, b)
-    print(s.fitness_fun())
+    # b = neural_network()
+    # s = snake((255,0,0),(10,10))
+    # s.play(1, b)
+    # print(s.fitness_fun())
     
     # b.forward_prop([1,1,1,1,1,1,1,1,1,1,1,1])
 

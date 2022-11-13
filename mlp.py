@@ -20,4 +20,4 @@ class neural_network:
         print(x[0][0][0])
 
     def forward_prop(self, inp):
-        return self.brain.predict([inp])
+        return self.brain.predict([inp], verbose=0)
