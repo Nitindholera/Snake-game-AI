@@ -1,7 +1,7 @@
 import random
 import pygame
 import numpy as np
-from test import neural_network
+from mlp import neural_network
 
 class cube(object):
     def __init__(self, start, dirnx=1, dirny=0, color=(255,0,0)):
@@ -31,7 +31,9 @@ class snake(object):
         self.body.append(self.head)
         self.dirnx = 0
         self.dirny = 1
+        self.food = None
 
+        self.deaths = 0
         self.score = []
         self.avg_steps = []
         self.penalities = []
@@ -60,10 +62,15 @@ class snake(object):
                     self.dirny = 1
                     self.turns[self.head.pos[:]] = [self.dirnx, self.dirny]
 
-    def move_with_brain(self):
+    def move_with_brain(self, dis, b):
+        if dis:
+            for event in pygame.event.get():
+                if event.type == pygame.QUIT:
+                    pygame.quit()
+
         inp = self.get_surroundings()
         x = b.forward_prop(inp)
-        print(x[0])
+        # print(x[0])
         val = x[0].argmax()
 
         if val == 0:
@@ -85,10 +92,49 @@ class snake(object):
 
     def get_surroundings(self):
         # will return an 12 size list
-        return [1,1,1,1,1,1,1,1,1,1,1,0]
+        re = [0,0,0,0,0,0,0,0,0,0,0,0]
 
-    def move(self):
-        self.move_with_brain()
+        if self.head.pos[0] == 0:
+            re[0] = 1
+        if self.head.pos[0] == rows-1:
+            re[1] = 1
+        if self.head.pos[1] == 0:
+            re[2] = 1
+        if self.head.pos[1] == rows - 1:
+            re[3] = 1
+        if self.dirnx == -1:
+            re[4] = 1
+        if self.dirnx == 1:
+            re[5] = 1
+        if self.dirny == -1:
+            re[6] = 1
+        if self.dirny == 1:
+            re[7] = 1
+        if self.food.pos[0] < self.head.pos[0]:
+            re[8] = 1
+        if self.food.pos[0] > self.head.pos[0]:
+            re[9] = 1
+        if self.food.pos[1] < self.head.pos[1]:
+            re[10] = 1
+        if self.food.pos[1] > self.head.pos[1]:
+            re[11] = 1
+        for x in range(1, len(self.body)):
+            if self.body[x].pos[1] == self.head.pos[1] and self.body[x].pos[0] == self.head.pos[0] - 1:
+                re[0] = 1 
+            if self.body[x].pos[1] == self.head.pos[1] and self.body[x].pos[0] == self.head.pos[0] + 1:
+                re[1] = 1 
+            if self.body[x].pos[0] == self.head.pos[0] and self.body[x].pos[1] == self.head.pos[1] - 1:
+                re[2] = 1 
+            if self.body[x].pos[0] == self.head.pos[0] and self.body[x].pos[1] == self.head.pos[1] + 1:
+                re[3] = 1 
+        # print(re)
+        return re
+
+    def move(self, dis, brain):
+        if brain:
+            self.move_with_brain(dis, brain)
+        else:
+            self.move_with_keys()
                 
         for i,c in enumerate(self.body):
             p = c.pos[:]
@@ -98,54 +144,80 @@ class snake(object):
                 if i == len(self.body)-1:
                     self.turns.pop(p)
             else:
-                if c.dirnx == -1 and c.pos[0]<=0:
-                    c.pos = (rows-1, c.pos[1])
-                elif c.dirnx == 1 and c.pos[0]>=rows-1:
-                    c.pos = (0, c.pos[1])
-                elif c.dirny == 1 and c.pos[1]>=rows-1:
-                    c.pos = (c.pos[0], 0)
-                elif c.dirny == -1 and c.pos[1]<=0:
-                    c.pos = (c.pos[0], rows-1)
-                else:
-                    c.move(c.dirnx, c.dirny)
+                c.move(c.dirnx, c.dirny)
     
-    def play(self):
-        screen = pygame.display.set_mode((width, width))
-        food = cube(randomfood(rows, self), color=(0,255,0))
-        clock = pygame.time.Clock()
+    def clear_scores(self):
+        self.score.clear()
+        self.deaths = 0
+        self.avg_steps.clear()
+        self.penalities.clear()
 
-        flag = 0
-        tmp = 0
+    def play(self, dis = True, brain = None):
+        self.clear_scores()
+        if dis:
+            screen = pygame.display.set_mode((width, width))
+            clock = pygame.time.Clock()
+        self.food = cube(randomfood(rows, self), color=(0,255,0))
+
+        steps = 0
         penality = 0
-        while flag < 3:
+        tmp = 0
+        while steps < 50:
             pygame.time.delay(50)
-            clock.tick(10)
-            self.move()
+            # clock.tick(10)
+            self.move(dis, brain)
 
-            if self.body[0].pos == food.pos:
+            if self.body[0].pos == self.food.pos:
                 self.addCube()
-                food = cube(randomfood(rows, self), color=(0,255,0))
+                self.food = cube(randomfood(rows, self), color=(0,255,0))
 
                 self.avg_steps.append(tmp)
-                if tmp > 30:
+                if tmp>20:
                     penality+=1
                 tmp = 0
-            tmp+=1
+            tmp += 1
+            
 
-            for x in range(1,len(self.body)):
-                if self.body[0].pos == self.body[x].pos:
-                    self.score.append(len(self.body))
-                    self.penalities.append(penality)
-                    penality = 0
-                    self.reset((10,10))
-                    flag += 1
-                    break
-            self.redrawWindow(screen, width, rows, food)
+            f = 0
+            if self.body[0].dirnx == -1 and self.body[0].pos[0]<0:
+                f = 1
+            elif self.body[0].dirnx == 1 and self.body[0].pos[0]>rows-1:
+                f = 1
+            elif self.body[0].dirny == 1 and self.body[0].pos[1]>rows-1:
+                f = 1
+            elif self.body[0].dirny == -1 and self.body[0].pos[1]<0:
+                f = 1
+            if f == 1:
+                self.score.append(len(self.body))
+                self.penalities.append(penality)
+                self.deaths += 1
+                penality = 0
+                tmp = 0
+                self.reset((10,10))
+            else:
+                for x in range(1,len(self.body)):
+                    if self.body[0].pos == self.body[x].pos:
+                        self.score.append(len(self.body))
+                        self.penalities.append(penality)
+                        self.deaths += 1
+                        penality = 0
+                        tmp = 0
+                        self.reset((10,10))
+                        break
+            if dis:
+                self.redrawWindow(screen, width, rows, self.food)
+            steps+=1
+        self.reset((10,10))
 
     def fitness_fun(self):
-        val = max(self.score)*5000 - 150 * sum(self.avg_steps)/len(self.avg_steps) - 100 * sum(self.penalities
+        avg = 0
+        if len(self.avg_steps) != 0:
+            avg = sum(self.avg_steps)/len(self.avg_steps)
+        if len(self.score) == 0:
+            self.score.append(1)
+        val = (max(self.score))*5000 - 150 * self.deaths - 100 * avg - 1000 * sum(self.penalities
         )
-        return self.score, sum(self.avg_steps)/len(self.avg_steps), self.penalities, val
+        return self.score, self.deaths, avg, self.penalities, val
 
     def draw(self, surface):
         for i, c in enumerate(self.body):
@@ -200,14 +272,14 @@ def randomfood(rows, eater):
     return (x,y)
 
 def main():
-    global width, rows, b
+    global width, rows
     width = 500
     rows = 20
 
     b = neural_network()
     s = snake((255,0,0),(10,10))
-    s.play()
-    # print(s.fitness_fun())
+    s.play(1, b)
+    print(s.fitness_fun())
     
     # b.forward_prop([1,1,1,1,1,1,1,1,1,1,1,1])
 
