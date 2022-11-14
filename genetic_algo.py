@@ -8,31 +8,30 @@ class genetic_algo(object):
         self.pop = [[0, neural_network()] for i in range(size)]
         self.snake = snake((255,0,0),(10,10))
         
-    def compute_fitness(self):
+    def compute_fitness(self, gen):
         for i, nn in enumerate(self.pop):
+            print("gen" + str(gen) + " nn" + str(i))
             self.snake.play(1, nn[1])
             self.pop[i][0] = (self.snake.fitness_fun()[5])
         self.pop.sort(key=lambda x: x[0], reverse=True)
 
-    def evoulation(self, gens):
-        for i in range(gens):
-            self.compute_fitness()
-            self.pop = self.pop[:12]
+    def evoulation(self, gens = 20, top = 12):
+        for j in range(1, gens+1):
+            self.compute_fitness(j)
+            max(self.pop, key=lambda x: x[0])[1].brain.save_weights('brains/gen'+str(j) + '.h5')
+            print(max(self.pop, key=lambda x: x[0])[0])
+            
+            self.pop = self.pop[:top]
             while len(self.pop) != self.size:
-                num1 = np.random.randint(low=0, high=12)
-                num2 = np.random.randint(low=0, high=12)
+                num1 = np.random.randint(low=0, high=top)
+                num2 = np.random.randint(low=0, high=top)
                 self.pop.append([0, self.crossover(self.pop[num1][1], self.pop[num2][1])])
             
             for i in range(self.size):
                 self.pop[i][1] = self.mutate(p=self.pop[i][1])
-
-            self.compute_fitness()
-            max(self.pop, key=lambda x: x[0])[1].brain.save_weights('brains/gen'+str(i) + '.h5')
         
-            print(max(self.pop, key=lambda x: x[0])[0])
     
     def mutate(self, prob = 0.05, p = neural_network()):
-        print("mutating...")
         w = np.array(p.brain.get_weights())
         for i in range(len(w)):
             if len(w[i].shape)==2:
@@ -74,8 +73,11 @@ class genetic_algo(object):
         return child
 
 def main():
-    g = genetic_algo(50)
-    # g.compute_fitness() 
-    g.evoulation(20)
+    # g = genetic_algo(20)
+    # g.evoulation(20, 8)
+    x = neural_network()
+    x.brain.load_weights('brains/gen2.h5')
+    s = snake((255,0,0),(10,10))
+    s.play(brain=x)
 main()
             
